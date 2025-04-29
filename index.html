@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VersionLite</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      background-color: #ffffff;
+      color: #111;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 40px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 2em;
+      margin: 0;
+    }
+    .project-list {
+      list-style: none;
+      padding: 0;
+      border-top: 1px solid #ddd;
+    }
+    .project-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 10px;
+      border-bottom: 1px solid #eee;
+    }
+    .project-item:hover {
+      background-color: #f5f5f5;
+    }
+    .project-name {
+      flex-grow: 1;
+      cursor: pointer;
+    }
+    .project-actions button {
+      font-size: 0.9em;
+      margin-left: 10px;
+      padding: 4px 8px;
+    }
+    .main-view {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+    }
+    .version-list, .upload-panel {
+      border: 1px solid #ccc;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    .version-list h2, .upload-panel h2 {
+      margin-top: 0;
+    }
+    .version-entry {
+      margin-bottom: 10px;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 4px;
+    }
+    textarea {
+      width: 100%;
+      height: 60px;
+      margin-top: 10px;
+      padding: 8px;
+    }
+    .tag-container label {
+      margin-right: 15px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #fff;
+      border: 1px solid #aaa;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 id="headerTitle">VersionLite</h1>
+      <button onclick="goBack()">← 뒤로가기</button>
+    </div>
+
+    <!-- 첫 화면 -->
+    <div id="projectSelectView">
+      <button onclick="createProject()">프로젝트 생성하기</button>
+      <h2>프로젝트 선택</h2>
+      <ul class="project-list" id="projectList"></ul>
+    </div>
+
+    <!-- 프로젝트 내부 화면 -->
+    <div id="mainView" class="main-view">
+      <div class="version-list">
+        <h2>버전 기록</h2>
+        <div id="versionEntries"></div>
+      </div>
+      <div class="upload-panel">
+        <h2>업로드 / 메모</h2>
+        <input type="file" id="fileInput"><br>
+        <div class="tag-container">
+          <label><input type="checkbox" value="버그 있음"> 버그 있음</label>
+          <label><input type="checkbox" value="에러 수정"> 에러 수정</label>
+          <label><input type="checkbox" value="기능 추가"> 기능 추가</label>
+        </div>
+        <textarea id="memoInput" placeholder="간단한 메모를 입력하세요..."></textarea>
+        <button onclick="registerVersion()">등록하기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let projects = ["냉감자", "뽀송뽀송", "고정데미지"];
+    let currentProject = null;
+    let projectVersions = {};
+
+    function renderProjects() {
+      const list = document.getElementById("projectList");
+      list.innerHTML = "";
+      projects.forEach((name, index) => {
+        const li = document.createElement("li");
+        li.className = "project-item";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "project-name";
+        nameSpan.textContent = name;
+        nameSpan.onclick = () => openProject(name);
+
+        const actions = document.createElement("div");
+        actions.className = "project-actions";
+
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "✏ 수정";
+        editBtn.onclick = () => editProject(index);
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "🗑 삭제";
+        deleteBtn.onclick = () => deleteProject(index);
+
+        actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
+
+        li.appendChild(nameSpan);
+        li.appendChild(actions);
+        list.appendChild(li);
+      });
+    }
+
+    function openProject(name) {
+      currentProject = name;
+      document.getElementById("headerTitle").textContent = `VersionLite - ${name}`;
+      document.getElementById("projectSelectView").style.display = "none";
+      document.getElementById("mainView").style.display = "grid";
+      if (!projectVersions[name]) projectVersions[name] = [];
+      renderVersions();
+    }
+
+    function goBack() {
+      currentProject = null;
+      document.getElementById("headerTitle").textContent = "VersionLite";
+      document.getElementById("projectSelectView").style.display = "block";
+      document.getElementById("mainView").style.display = "none";
+    }
+
+    function renderVersions() {
+      const entries = projectVersions[currentProject] || [];
+      const versionDiv = document.getElementById("versionEntries");
+      versionDiv.innerHTML = "";
+      entries.forEach((entry, i) => {
+        const div = document.createElement("div");
+        div.className = "version-entry";
+        div.textContent = `v1.${i} - ${entry.tags.join(", ")} - ${entry.memo}`;
+        versionDiv.appendChild(div);
+      });
+    }
+
+    function registerVersion() {
+      const file = document.getElementById("fileInput").files[0];
+      const checkboxes = document.querySelectorAll(".tag-container input:checked");
+      const tags = Array.from(checkboxes).map(cb => cb.value);
+      const memo = document.getElementById("memoInput").value;
+
+      if (!memo.trim() && tags.length === 0 && !file) {
+        alert("업로드할 내용이나 메모를 입력하세요.");
+        return;
+      }
+
+      projectVersions[currentProject].push({ tags, memo, file });
+      document.getElementById("fileInput").value = "";
+      document.getElementById("memoInput").value = "";
+      checkboxes.forEach(cb => cb.checked = false);
+      renderVersions();
+    }
+
+    function editProject(index) {
+      const newName = prompt("새 프로젝트 이름을 입력하세요:", projects[index]);
+      if (newName) {
+        projects[index] = newName;
+        renderProjects();
+      }
+    }
+
+    function deleteProject(index) {
+      const confirmDelete = confirm("정말 삭제하시겠습니까?");
+      if (confirmDelete) {
+        const name = projects[index];
+        projects.splice(index, 1);
+        delete projectVersions[name];
+        renderProjects();
+      }
+    }
+
+    function createProject() {
+      const name = prompt("프로젝트 이름을 입력하세요:");
+      if (name) {
+        projects.push(name);
+        renderProjects();
+      }
+    }
+
+    window.onload = renderProjects;
+  </script>
+</body>
+</html>
